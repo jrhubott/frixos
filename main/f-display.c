@@ -22,6 +22,7 @@
 #include "math.h"
 #include "esp_timer.h"
 #include "esp_lcd_st7735.h"
+#include "esp_lcd_panel_interface.h"
 #include <unistd.h>
 #include "lvgl.h"
 #include "draw/lv_image_decoder.h"
