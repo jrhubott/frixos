@@ -19,6 +19,7 @@
 #include "esp_wifi.h"
 #include "esp_spiffs.h"
 
+#include "config.h"
 #include "frixos.h"
 #include "f-display.h"
 #include "f-wifi.h"
@@ -182,6 +183,57 @@ static const nvs_setting_t settings_table[] = {
     {"poh", SETTING_TYPE_U32, &eeprom_poh, 0},
 };
 #define SETTINGS_COUNT (sizeof(settings_table) / sizeof(settings_table[0]))
+
+typedef struct {
+    const char *nvs_key;
+    const char *default_value;
+    char *target;
+    size_t target_size;
+} nvs_default_t;
+
+static const nvs_default_t nvs_defaults[] = {
+    {"latitude",  DEFAULT_LATITUDE,  eeprom_lat,      sizeof(eeprom_lat)},
+    {"longitude", DEFAULT_LONGITUDE, eeprom_lon,      sizeof(eeprom_lon)},
+    {"timezone",  DEFAULT_TIMEZONE,  eeprom_timezone,  sizeof(eeprom_timezone)},
+    {"ha_url",    DEFAULT_HA_URL,    eeprom_ha_url,    sizeof(eeprom_ha_url)},
+    {"ha_token",  DEFAULT_HA_TOKEN,  eeprom_ha_token,  sizeof(eeprom_ha_token)},
+};
+#define NVS_DEFAULTS_COUNT (sizeof(nvs_defaults) / sizeof(nvs_defaults[0]))
+
+static void populate_nvs_defaults(void)
+{
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(EEPROM_NAMESPACE, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOG_WEB(ESP_LOG_WARN, TAG, "populate_nvs_defaults: NVS open failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    bool any_written = false;
+    for (size_t i = 0; i < NVS_DEFAULTS_COUNT; i++) {
+        const nvs_default_t *d = &nvs_defaults[i];
+        if (strlen(d->default_value) == 0)
+            continue;
+
+        size_t len = 0;
+        err = nvs_get_str(handle, d->nvs_key, NULL, &len);
+        if (err == ESP_ERR_NVS_NOT_FOUND) {
+            nvs_set_str(handle, d->nvs_key, d->default_value);
+            strncpy(d->target, d->default_value, d->target_size - 1);
+            d->target[d->target_size - 1] = '\0';
+            ESP_LOG_WEB(ESP_LOG_INFO, TAG, "NVS default applied: %s", d->nvs_key);
+            any_written = true;
+        }
+    }
+
+    if (any_written) {
+        nvs_commit(handle);
+        strcpy(my_lat, eeprom_lat);
+        strcpy(my_lon, eeprom_lon);
+        strcpy(my_timezone, eeprom_timezone);
+    }
+    nvs_close(handle);
+}
 
 static esp_err_t nvs_read_setting(nvs_handle_t handle, const nvs_setting_t *setting)
 {
@@ -646,6 +698,9 @@ void startup_read_eeprom(void)
 
     // Close NVS
     nvs_close(nvs_handle);
+
+    // Populate NVS from .env defaults for any keys not yet set
+    populate_nvs_defaults();
 
     // 5. Log final parameters
     ESP_LOG_WEB(ESP_LOG_INFO, TAG,

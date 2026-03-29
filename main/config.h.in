@@ -6,4 +6,11 @@
 #define ARTLOGIC_SSID "@ARTLOGIC_SSID@"
 #define ARTLOGIC_PASSWORD "@ARTLOGIC_PASSWORD@"
 
+/* NVS first-boot defaults (populated from .env; web UI overrides persist) */
+#define DEFAULT_LATITUDE "@LATITUDE@"
+#define DEFAULT_LONGITUDE "@LONGITUDE@"
+#define DEFAULT_TIMEZONE "@TIMEZONE@"
+#define DEFAULT_HA_URL "@HA_URL@"
+#define DEFAULT_HA_TOKEN "@HA_TOKEN@"
+
 #endif
